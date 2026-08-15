@@ -10,7 +10,7 @@ const QUERY_FIELDS = [
 ];
 
 DATA_URL.search = new URLSearchParams({
-  where: "HourPriorToLatest = 0",
+  where: "HourPriorToLatest <= 1",
   outFields: QUERY_FIELDS.join(","),
   returnGeometry: "true",
   outSR: "4326",
@@ -152,7 +152,15 @@ function normalizeFeature(feature, now) {
 
 function renderStations(features) {
   const now = Date.now();
-  stations = features.map((feature) => normalizeFeature(feature, now)).filter(Boolean);
+  const latestBySite = new Map();
+  for (const feature of features) {
+    const station = normalizeFeature(feature, now);
+    if (!station) continue;
+    const key = station.id ?? `${station.latitude},${station.longitude}`;
+    const existing = latestBySite.get(key);
+    if (!existing || station.timestamp > existing.timestamp) latestBySite.set(key, station);
+  }
+  stations = [...latestBySite.values()];
   stationLayer.clearLayers();
 
   for (const station of stations) {

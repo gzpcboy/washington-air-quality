@@ -4,7 +4,7 @@ A minimal, full-screen map of current air-quality readings from monitoring stati
 
 ## Data source
 
-The site queries Ecology's [`AirQualityMonitoringHourlyResults` layer](https://gis.ecology.wa.gov/serverext/rest/services/AQ/AirQualityMonitoringHourlyResults/MapServer/0), which provides hourly telemetry concentrations and calculated AQI values. The implementation requests the latest (`HourPriorToLatest = 0`) record for each station and refreshes once per hour to match the source cadence.
+The site queries Ecology's [`AirQualityMonitoringHourlyResults` layer](https://gis.ecology.wa.gov/serverext/rest/services/AQ/AirQualityMonitoringHourlyResults/MapServer/0), which provides hourly telemetry concentrations and calculated AQI values. The implementation requests the two newest hourly batches, keeps the latest record for each station, and refreshes once per hour to match the source cadence. Fetching two batches avoids a brief empty-map window while Ecology rolls the service over to a new hour.
 
 Readings older than three hours or implausibly dated in the future are not shown as current. Missing AQI values appear as gray markers. The official ArcGIS service allows cross-origin browser requests, so no backend proxy is required.
 
