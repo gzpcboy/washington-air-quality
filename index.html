@@ -29,6 +29,23 @@
     <p id="location-status" class="map-card status-message" role="status" hidden></p>
     <p id="error" class="map-card error-message" role="alert" hidden></p>
 
+    <section class="map-card layer-control" aria-label="Map layers">
+      <h2>Layers</h2>
+      <label>
+        <input id="aqi-layer-toggle" type="checkbox" checked>
+        <span>AQI Layer</span>
+      </label>
+      <label class="opacity-control">
+        <span>Opacity</span>
+        <input id="aqi-opacity" type="range" min="50" max="65" value="58" aria-label="AQI layer opacity">
+      </label>
+      <label>
+        <input id="stations-toggle" type="checkbox" checked>
+        <span>Monitoring Stations</span>
+      </label>
+      <p id="layer-source" aria-live="polite">Loading EPA AirNow contours…</p>
+    </section>
+
     <section class="map-card legend" aria-label="United States Air Quality Index legend">
       <h2>US AQI</h2>
       <div><i class="good"></i><span>0–50</span><span>Good</span></div>

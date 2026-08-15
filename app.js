@@ -1,6 +1,9 @@
 const DATA_URL = new URL(
   "https://gis.ecology.wa.gov/serverext/rest/services/AQ/AirQualityMonitoringHourlyResults/MapServer/0/query"
 );
+const AIRNOW_CONTOUR_URL = new URL(
+  "https://services.arcgis.com/cJ9YHowT8TU7DUyn/arcgis/rest/services/AirNowLatestContoursCombined/FeatureServer/0/query"
+);
 
 const QUERY_FIELDS = [
   "SiteId", "SiteName", "SiteLocation", "DateTime_PST", "HourPriorToLatest",
@@ -17,10 +20,32 @@ DATA_URL.search = new URLSearchParams({
   f: "json"
 });
 
+AIRNOW_CONTOUR_URL.search = new URLSearchParams({
+  where: "1=1",
+  outFields: "gridcode,Timestamp",
+  geometry: "-124.95,45.54,-116.85,49.05",
+  geometryType: "esriGeometryEnvelope",
+  inSR: "4326",
+  spatialRel: "esriSpatialRelIntersects",
+  outSR: "4326",
+  returnGeometry: "true",
+  f: "geojson"
+});
+
 const REFRESH_MS = 60 * 60 * 1000;
 const MAX_READING_AGE_MS = 3 * 60 * 60 * 1000;
 const FUTURE_TOLERANCE_MS = 15 * 60 * 1000;
 const WASHINGTON_BOUNDS = L.latLngBounds([45.54, -124.95], [49.05, -116.85]);
+const CONTOUR_CATEGORIES = {
+  1: { label: "Good", range: "0–50", color: "#00e400" },
+  2: { label: "Moderate", range: "51–100", color: "#ffff00" },
+  3: { label: "Unhealthy for Sensitive Groups", range: "101–150", color: "#ff7e00" },
+  4: { label: "Unhealthy", range: "151–200", color: "#ff0000" },
+  5: { label: "Very Unhealthy", range: "201–300", color: "#8f3f97" },
+  6: { label: "Hazardous", range: "301+", color: "#7e0023" }
+};
+let contourOpacity = 0.58;
+let contourUpdatedTimestamp = null;
 
 const map = L.map("map", {
   zoomControl: false,
@@ -37,11 +62,29 @@ L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
   attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 }).addTo(map);
 
+const airNowContourLayer = L.geoJSON(null, {
+  style(feature) {
+    const details = CONTOUR_CATEGORIES[feature?.properties?.gridcode];
+    return {
+      fillColor: details?.color ?? "transparent",
+      fillOpacity: contourOpacity,
+      color: "transparent",
+      weight: 0
+    };
+  },
+  onEachFeature(feature, layer) {
+    layer.bindPopup(() => contourPopupHtml(feature.properties), { maxWidth: 280 });
+  }
+}).addTo(map);
 const stationLayer = L.layerGroup().addTo(map);
 const updatedElement = document.querySelector("#updated");
 const errorElement = document.querySelector("#error");
 const locateButton = document.querySelector("#locate");
 const locationStatus = document.querySelector("#location-status");
+const aqiLayerToggle = document.querySelector("#aqi-layer-toggle");
+const stationLayerToggle = document.querySelector("#stations-toggle");
+const opacityControl = document.querySelector("#aqi-opacity");
+const layerSource = document.querySelector("#layer-source");
 let stations = [];
 let userMarker;
 
@@ -117,6 +160,27 @@ function popupHtml(station) {
       <dt>PM2.5</dt><dd>${pm25}</dd>
       <dt>Updated</dt><dd>${escapeHtml(formatTime(timestamp))}</dd>
     </dl>`;
+}
+
+function parseTimestamp(value) {
+  const numeric = Number(value);
+  if (Number.isFinite(numeric)) return numeric;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : NaN;
+}
+
+function contourPopupHtml(properties) {
+  const details = CONTOUR_CATEGORIES[properties?.gridcode];
+  if (!details) return "AirNow contour data unavailable";
+  return `
+    <h2 class="popup-title">Estimated AQI</h2>
+    <dl class="popup-grid">
+      <dt>AQI range</dt><dd>${details.range}</dd>
+      <dt>Category</dt><dd>${escapeHtml(details.label)}</dd>
+      <dt>Updated</dt><dd>${escapeHtml(formatTime(parseTimestamp(properties.Timestamp)))}</dd>
+      <dt>Source</dt><dd>EPA AirNow</dd>
+    </dl>
+    <p class="estimate-disclaimer">AirNow contour areas estimate conditions between monitors. This is not a measurement at this location.</p>`;
 }
 
 function stationIcon(aqi, category) {
@@ -196,6 +260,38 @@ async function loadStations() {
   }
 }
 
+async function loadAirNowContours() {
+  try {
+    const response = await fetch(AIRNOW_CONTOUR_URL, { headers: { Accept: "application/geo+json, application/json" } });
+    if (!response.ok) throw new Error(`AirNow contour request failed (${response.status})`);
+    const payload = await response.json();
+    if (!Array.isArray(payload.features)) throw new Error("Unexpected AirNow contour response.");
+
+    const currentFeatures = payload.features.filter((feature) => {
+      const gridcode = Number(feature?.properties?.gridcode);
+      const timestamp = parseTimestamp(feature?.properties?.Timestamp);
+      return CONTOUR_CATEGORIES[gridcode] && isCurrent(timestamp);
+    });
+    if (!currentFeatures.length) throw new Error("AirNow returned no current Washington contours.");
+
+    contourUpdatedTimestamp = Math.max(...currentFeatures.map((feature) => parseTimestamp(feature.properties.Timestamp)));
+    airNowContourLayer.clearLayers();
+    airNowContourLayer.addData({ type: "FeatureCollection", features: currentFeatures });
+    layerSource.textContent = `EPA AirNow contours · ${formatTime(contourUpdatedTimestamp)}`;
+    layerSource.dataset.error = "false";
+  } catch (error) {
+    console.error("Unable to load EPA AirNow AQI contours:", error);
+    if (!isCurrent(contourUpdatedTimestamp)) {
+      airNowContourLayer.clearLayers();
+      contourUpdatedTimestamp = null;
+    }
+    layerSource.textContent = contourUpdatedTimestamp
+      ? "AirNow refresh delayed · showing last current contours"
+      : "EPA AirNow contours are temporarily unavailable";
+    layerSource.dataset.error = "true";
+  }
+}
+
 function distanceMiles(from, station) {
   return from.distanceTo(L.latLng(station.latitude, station.longitude)) / 1609.344;
 }
@@ -238,6 +334,21 @@ function handleLocationError(event) {
     : "Your location could not be determined. Please check browser location settings.");
 }
 
+aqiLayerToggle.addEventListener("change", () => {
+  if (aqiLayerToggle.checked) airNowContourLayer.addTo(map);
+  else airNowContourLayer.remove();
+});
+
+stationLayerToggle.addEventListener("change", () => {
+  if (stationLayerToggle.checked) stationLayer.addTo(map);
+  else stationLayer.remove();
+});
+
+opacityControl.addEventListener("input", () => {
+  contourOpacity = Number(opacityControl.value) / 100;
+  airNowContourLayer.setStyle({ fillOpacity: contourOpacity });
+});
+
 locateButton.addEventListener("click", () => {
   if (!navigator.geolocation) {
     showLocationStatus("This browser does not support geolocation.");
@@ -252,4 +363,6 @@ map.on("locationfound", handleLocationFound);
 map.on("locationerror", handleLocationError);
 
 loadStations();
+loadAirNowContours();
 setInterval(loadStations, REFRESH_MS);
+setInterval(loadAirNowContours, REFRESH_MS);
