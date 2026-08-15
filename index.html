@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="description" content="A live map of current air quality monitoring data across Washington State.">
+    <title>Washington Air Quality</title>
+    <link rel="preconnect" href="https://unpkg.com">
+    <link rel="preconnect" href="https://tile.openstreetmap.org">
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIINfQ3ynhYlVeLrzZpZtxvJfMZxN2zKXwE="
+      crossorigin=""
+    >
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <main id="map" aria-label="Current air quality map of Washington State"></main>
+
+    <section class="map-card title-card" aria-label="Map title and status">
+      <h1>Washington Air Quality</h1>
+      <p id="updated" aria-live="polite">Loading current readings…</p>
+    </section>
+
+    <button id="locate" class="map-card locate-button" type="button" aria-describedby="location-status">
+      <span aria-hidden="true">⌖</span> My Location
+    </button>
+    <p id="location-status" class="map-card status-message" role="status" hidden></p>
+    <p id="error" class="map-card error-message" role="alert" hidden></p>
+
+    <section class="map-card legend" aria-label="United States Air Quality Index legend">
+      <h2>US AQI</h2>
+      <div><i class="good"></i><span>0–50</span><span>Good</span></div>
+      <div><i class="moderate"></i><span>51–100</span><span>Moderate</span></div>
+      <div><i class="sensitive"></i><span>101–150</span><span>Sensitive groups</span></div>
+      <div><i class="unhealthy"></i><span>151–200</span><span>Unhealthy</span></div>
+      <div><i class="very-unhealthy"></i><span>201–300</span><span>Very unhealthy</span></div>
+      <div><i class="hazardous"></i><span>301+</span><span>Hazardous</span></div>
+    </section>
+
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+    <script src="app.js"></script>
+  </body>
+</html>
