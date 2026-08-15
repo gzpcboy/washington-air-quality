@@ -136,9 +136,9 @@ h1 {
   width: 34px;
   height: 34px;
   place-items: center;
-  border: 2px solid rgb(255 255 255 / 92%);
+  border: 2px solid rgb(15 23 42 / 72%);
   border-radius: 50%;
-  box-shadow: 0 1px 4px rgb(0 0 0 / 45%);
+  box-shadow: 0 1px 4px rgb(255 255 255 / 75%);
   font-size: 0.7rem;
   font-weight: 800;
   line-height: 1;
@@ -189,7 +189,7 @@ h1 {
 
 @media (max-width: 520px) {
   .title-card {
-    max-width: calc(100vw - 150px);
+    max-width: calc(100vw - 158px);
   }
 
   .legend {
@@ -203,7 +203,25 @@ h1 {
   }
 
   .status-message {
-    top: 64px;
+    top: 122px;
+  }
+
+  .error-message {
+    bottom: 190px;
+  }
+}
+
+@media (max-width: 360px) {
+  .title-card {
+    max-width: calc(100vw - 24px);
+  }
+
+  .locate-button {
+    top: 92px;
+  }
+
+  .status-message {
+    top: 146px;
   }
 }
 
